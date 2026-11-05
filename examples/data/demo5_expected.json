@@ -1,0 +1,71 @@
+{
+  "dataset": {
+    "n_subjects": 5,
+    "n_nodes": 64,
+    "n_edges": 2016,
+    "n_time": 120,
+    "tr": 2.0,
+    "sc_density_percent": 24.6,
+    "bold_vs_fc_max_abs_diff": 0.0
+  },
+  "settings": {
+    "metrics": [
+      "communicability",
+      "direct",
+      "reliance"
+    ],
+    "estimators": [
+      "regional",
+      "node",
+      "edge"
+    ],
+    "n_perm": 500,
+    "null": "spin",
+    "seed": 0
+  },
+  "axis": {
+    "communicability": {
+      "regional": {
+        "r": 0.5031,
+        "p": 0.002
+      },
+      "node": {
+        "r": 0.7984,
+        "p": 0.002
+      },
+      "edge": {
+        "r": 0.4384,
+        "p": 0.002
+      }
+    },
+    "direct": {
+      "regional": {
+        "r": 0.3345,
+        "p": 0.0499
+      },
+      "node": {
+        "r": 0.8169,
+        "p": 0.002
+      },
+      "edge": {
+        "r": 0.3216,
+        "p": 0.004
+      }
+    },
+    "reliance": {
+      "regional": {
+        "r": 0.4941,
+        "p": 0.002
+      },
+      "node": {
+        "r": 0.4821,
+        "p": 0.022
+      },
+      "edge": {
+        "r": 0.0092,
+        "p": 0.4611
+      }
+    }
+  },
+  "note": "Synthetic teaching data. Numbers are reproducible with seed 0 and 500 permutations; five subjects make every p-value a demonstration of the machinery, not a result."
+}

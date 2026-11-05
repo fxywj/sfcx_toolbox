@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use SFCX, please cite it as below."
+title: "SFCX — structure–function coupling explorer"
+authors:
+  - name: "SFCX contributors"
+version: 0.2.0
+date-released: "2026-11-05"
+license: MIT
+repository-code: "https://github.com/fxywj/sfcx_toolbox"
+abstract: >-
+  A toolbox that treats structure–function coupling readouts as an explicit
+  four-layer coordinate system (definition × pipeline × estimator × scale).
+  27 coupling definitions, per-subject coupling values, dispersion axes,
+  spatial null models and a cross-runtime (Python/MATLAB) numerical parity
+  test suite, with a no-install web interface.
+keywords:
+  - neuroscience
+  - connectome
+  - structure-function coupling
+  - neuroimaging
+  - reproducibility

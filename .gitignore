@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# virtual environments
+.venv/
+venv/
+env/
+
+# runtime artifacts (created by the web UI / analyses)
+sfcx_web_session/
+sfcx_web_sessions/
+sfcx_web_log.txt
+_uitest/
+_batchtest/
+_portenv/
+_portcheck/
+_pubtest/
+_webtest*/
+sfcx_out/
+quickstart_out/
+test_out/
+examples/_verify_out/
+matlab/tests/_reference_out/
+
+# generated session / batch files
+*.npy.temp
+uploads/
+
+# editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,1462 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>SFCX · 结构–功能耦合分析台</title>
+<style>
+:root{
+  --ink:#1f3a5f; --ink-2:#365a86; --teal:#2a9d8f; --teal-soft:#e6f4f1;
+  --orange:#e76f51; --sand:#e9c46a; --grey:#8d99ae; --grey-2:#b6c0cc;
+  --bg:#f5f7fa; --panel:#ffffff; --line:#e1e7ef; --line-2:#eef2f7;
+  --shadow:0 1px 2px rgba(31,58,95,.06), 0 10px 30px rgba(31,58,95,.06);
+  --radius:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink);
+  font:14px/1.6 "Segoe UI","Inter","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+button{font-family:inherit}
+/* ---------------------------------------------------------------- top */
+.topbar{
+  position:sticky; top:0; z-index:30;
+  display:flex; align-items:center; justify-content:space-between; gap:16px;
+  padding:14px 26px; background:rgba(255,255,255,.88);
+  border-bottom:1px solid var(--line); backdrop-filter:blur(10px);
+}
+.brand{display:flex; align-items:center; gap:14px}
+.logo{
+  width:44px;height:44px;border-radius:12px;display:grid;place-items:center;
+  background:linear-gradient(140deg,#2a9d8f,#1f3a5f); color:#fff;
+  font-weight:700;letter-spacing:.5px;font-size:15px;
+}
+.brand h1{margin:0;font-size:17px;letter-spacing:.2px}
+.brand p{margin:0;font-size:12.5px;color:var(--grey)}
+.top-actions{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--grey)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--grey-2);display:inline-block}
+.dot.live{background:var(--teal);box-shadow:0 0 0 4px var(--teal-soft)}
+.dot.err{background:var(--orange);box-shadow:0 0 0 4px #fdece8}
+.dot.run{background:var(--sand);box-shadow:0 0 0 4px #fbf3dd;animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+
+/* -------------------------------------------------------------- shell */
+.shell{
+  display:grid; gap:18px; padding:18px 26px 40px;
+  grid-template-columns:minmax(290px,.95fr) minmax(320px,1.05fr) minmax(380px,1.4fr);
+  align-items:start;
+}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.card{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);overflow:hidden;
+}
+.card-head{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:14px 16px 10px;
+}
+.card-head h2{
+  margin:0;font-size:13px;letter-spacing:1.6px;text-transform:uppercase;
+  color:var(--ink-2);font-weight:600;
+}
+.step{
+  display:inline-grid;place-items:center;width:20px;height:20px;border-radius:6px;
+  background:var(--teal-soft);color:var(--teal);font-size:11.5px;font-weight:700;
+  margin-right:8px;
+}
+.card-body{padding:0 16px 16px}
+.muted{color:var(--grey);font-size:12.5px}
+.row{display:flex;gap:8px;align-items:center}
+.row.wrap{flex-wrap:wrap}
+
+/* ------------------------------------------------------------ banner */
+.banner{display:none;margin:0 16px 12px;padding:9px 12px;border-radius:10px;
+  border-left:3px solid var(--orange);background:#fff6f3;color:#a4442e;font-size:12.5px}
+.banner.on{display:block}
+
+/* ----------------------------------------------------------- dropzone */
+.dropzone{
+  border:1.5px dashed #cfd9e6;border-radius:12px;background:#fbfcfe;
+  padding:16px 14px;text-align:center;transition:.16s ease;cursor:pointer;
+}
+.dropzone:hover,.dropzone.drag{border-color:var(--teal);background:#f6fcfb}
+.dropzone .dz-title{font-size:13.5px;font-weight:600;color:var(--ink-2)}
+.dropzone .dz-hint{font-size:12px;color:var(--grey);margin-top:3px;line-height:1.7}
+.dropzone .dz-icon{font-size:20px;line-height:1;margin-bottom:6px;color:var(--teal)}
+.dropzone input{display:none}
+
+/* --------------------------------------------------------------- slot */
+.slots{display:grid;gap:8px;margin-top:10px}
+.slot{
+  position:relative;border:1px dashed var(--line);border-radius:11px;
+  padding:10px 12px;cursor:pointer;transition:.16s ease;background:#fcfdfe;
+}
+.slot:hover{border-color:var(--teal);background:#f8fdfc}
+.slot.filled{border-style:solid;border-color:#cfe3de;background:#fbfefd}
+.slot.drag{border-color:var(--orange);background:#fff8f6}
+.slot-main{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.slot-title{font-size:13px;font-weight:600}
+.slot-badge{
+  font-size:11px;padding:2px 7px;border-radius:99px;background:var(--line-2);
+  color:var(--grey);
+}
+.slot-badge.req{background:#fdf0ec;color:var(--orange)}
+.slot-hint{display:block;font-size:11.5px;color:var(--grey);margin-top:2px}
+.slot-row{display:flex;align-items:center;gap:8px;margin-top:6px}
+.slot-file{flex:1;min-width:0;font-size:12px;color:var(--teal);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slot-file.empty{color:var(--grey-2)}
+.slot-pick{flex:none}
+.slot input{display:none}
+.slot.drag::after{
+  content:attr(data-drop-label);position:absolute;inset:0;display:grid;place-items:center;
+  background:rgba(255,248,246,.92);font-size:12px;color:var(--orange);border-radius:11px;
+}
+
+/* ------------------------------------------------------------- fields */
+.field{display:flex;flex-direction:column;gap:5px;margin-top:10px}
+.field label{font-size:12px;color:var(--grey)}
+.field select,.field input[type=text],.field input[type=number]{
+  width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:9px;
+  background:#fff;color:var(--ink);font-size:13px;outline:none;
+}
+.field select:focus,.field input:focus{border-color:var(--teal)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+/* ------------------------------------------------------------ buttons */
+.btn{
+  border:1px solid transparent;border-radius:10px;padding:9px 14px;font-size:13px;
+  cursor:pointer;transition:.15s ease;background:var(--ink);color:#fff;font-weight:600;
+}
+.btn:hover{filter:brightness(1.06)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.teal{background:var(--teal)}
+.btn.ghost{background:#fff;border-color:var(--line);color:var(--ink);font-weight:500}
+.btn.ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn.small{padding:6px 10px;font-size:12px;border-radius:8px}
+.btn.block{width:100%;padding:12px;font-size:14px}
+
+/* -------------------------------------------------------------- chips */
+.chip-group{margin-top:6px}
+.chip-group-title{
+  font-size:11.5px;letter-spacing:.4px;color:var(--grey);margin:12px 0 6px;
+  text-transform:uppercase;
+}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{
+  border:1px solid var(--line);background:#fff;border-radius:99px;
+  padding:5px 11px;font-size:12.5px;cursor:pointer;transition:.14s;color:var(--ink-2);
+  user-select:none;
+}
+.chip:hover{border-color:var(--teal);color:var(--teal)}
+.chip.on{background:var(--teal-soft);border-color:var(--teal);color:var(--teal);font-weight:600}
+.chip.custom.on{background:#fdf0ec;border-color:var(--orange);color:var(--orange)}
+.chip.slow{border-style:dashed}
+.chip.slow::after{content:"·";margin-left:2px;color:var(--orange);font-weight:700}
+.chip.slow:hover{border-color:var(--orange);color:var(--orange)}
+.seg{display:flex;gap:6px;margin-top:6px}
+.seg .chip{flex:1;text-align:center}
+
+/* ------------------------------------------------------------- custom */
+textarea{
+  width:100%;min-height:150px;resize:vertical;padding:10px 12px;
+  border:1px solid var(--line);border-radius:10px;background:#fbfcfe;
+  font:12.5px/1.55 "Cascadia Mono","Consolas","SFMono-Regular",monospace;
+  color:var(--ink);outline:none;
+}
+textarea:focus{border-color:var(--teal)}
+.msg{margin-top:8px;font-size:12px;padding:8px 10px;border-radius:9px;display:none}
+.msg.ok{display:block;background:var(--teal-soft);color:#1c6f66}
+.msg.bad{display:block;background:#fdece8;color:#b4492f}
+
+/* ------------------------------------------------------------ progress */
+.progress{height:4px;background:var(--line-2);border-radius:99px;overflow:hidden;margin-top:10px}
+.progress > i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--teal),var(--sand));transition:width .3s ease}
+
+/* ------------------------------------------------------------- results */
+.empty{
+  display:grid;place-items:center;text-align:center;padding:70px 26px;color:var(--grey);
+}
+.empty h3{margin:0 0 6px;font-size:15px;color:var(--ink-2);font-weight:600}
+.empty p{margin:0;font-size:12.5px;line-height:1.8}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:9px}
+.kpi{border:1px solid var(--line);border-radius:11px;padding:11px 12px;background:#fbfcfe}
+.kpi .n{font-size:20px;font-weight:600;letter-spacing:-.4px;display:block;line-height:1.25}
+.kpi .l{font-size:11.5px;color:var(--grey)}
+.metric-block{border-top:1px solid var(--line-2);padding-top:14px;margin-top:14px}
+.metric-block:first-child{border-top:none;padding-top:0;margin-top:0}
+.metric-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.metric-head h3{margin:0;font-size:14.5px}
+.tag{font-size:11px;padding:2px 8px;border-radius:99px;background:var(--teal-soft);color:var(--teal)}
+.tag.alt{background:#fdf0ec;color:var(--orange)}
+.figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:12px}
+.figs figure{margin:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+.figs img{width:100%;display:block;background:#fff}
+.figs figcaption{font-size:11px;color:var(--grey);padding:6px 8px;border-top:1px solid var(--line-2)}
+.heat{border-collapse:separate;border-spacing:2px;font-size:12px;width:100%}
+.heat th{font-weight:600;color:var(--ink-2);text-align:left;padding:4px 6px;font-size:11.5px}
+.heat td{text-align:center;padding:6px 4px;border-radius:6px;font-variant-numeric:tabular-nums}
+table.csv{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:10px}
+table.csv th,table.csv td{padding:5px 7px;border-bottom:1px solid var(--line-2);text-align:right}
+table.csv th:first-child,table.csv td:first-child{text-align:left}
+table.csv tr:first-child th{color:var(--ink-2);border-bottom:1px solid var(--line)}
+.downloads{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.notice{
+  border-left:3px solid var(--sand);background:#fffdf6;border-radius:0 9px 9px 0;
+  padding:9px 12px;font-size:12.5px;margin-top:10px;
+}
+.notice.err{border-left-color:var(--orange);background:#fff6f3}
+.footer{padding:0 26px 40px;color:var(--grey);font-size:12px}
+
+/* -------------------------------------------------------------- toast */
+.toast{
+  position:fixed;right:22px;bottom:22px;z-index:60;max-width:380px;
+  padding:11px 14px;border-radius:11px;background:#1f3a5f;color:#fff;
+  font-size:12.5px;line-height:1.6;box-shadow:0 10px 30px rgba(31,58,95,.22);
+  opacity:0;transform:translateY(8px);pointer-events:none;transition:.2s ease;
+}
+.toast.on{opacity:1;transform:none}
+.toast.err{background:#b4492f}
+
+/* ----------------------------------------------------------- responsive */
+@media (max-width:1180px){
+  .shell{grid-template-columns:1fr 1fr}
+  .col-result{grid-column:1 / -1}
+}
+@media (max-width:760px){
+  .shell{grid-template-columns:1fr;padding:14px}
+  .topbar{padding:12px 14px}
+  .brand p{display:none}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">SFCX</div>
+    <div>
+      <h1 data-i18n="app.title">结构–功能耦合分析台</h1>
+      <p data-i18n="app.subtitle">导入 SC / FC / BOLD，选择坐标，计算耦合、变异轴与震中</p>
+    </div>
+  </div>
+  <div class="top-actions">
+    <button id="langBtn" class="btn ghost small" title="switch language">EN</button>
+    <span id="statusDot" class="dot"></span>
+    <span id="statusText" data-i18n="status.idle">就绪</span>
+    <button id="resetBtn" class="btn ghost small" data-i18n="btn.reset">重置会话</button>
+  </div>
+</header>
+
+<main class="shell">
+
+  <!-- ============================ 1 数据 ============================ -->
+  <section class="col col-data">
+    <div class="card">
+      <div class="card-head">
+        <h2><span class="step">1</span><span data-i18n="sec.data">数据导入</span></h2>
+        <button id="demoBtn" class="btn ghost small" data-i18n="btn.demo">载入示例</button>
+      </div>
+      <div id="connBanner" class="banner"></div>
+      <div class="card-body">
+        <div id="dropzone" class="dropzone">
+          <div class="dz-icon">⇪</div>
+          <div class="dz-title" data-i18n="drop.title">把数据文件拖到这里</div>
+          <div class="dz-hint" data-i18n="drop.hint">支持 .npz / .npy / .mat / .csv / .tsv / .txt；可一次拖入多个文件，自动分配到对应槽位。</div>
+          <div style="margin-top:9px">
+            <button id="browseBtn" class="btn teal small" data-i18n="drop.button">选择文件</button>
+          </div>
+          <input id="autoInput" type="file" multiple accept=".npy,.npz,.mat,.csv,.tsv,.txt"/>
+        </div>
+
+        <div id="slots" class="slots"></div>
+
+        <div class="grid2" style="margin-top:12px">
+          <div class="field">
+            <label data-i18n="field.pipeline">功能流程</label>
+            <select id="fcKind"></select>
+          </div>
+          <div class="field">
+            <label data-i18n="field.state">状态标签</label>
+            <input id="stateName" type="text" value="rest" placeholder="rest / task"/>
+          </div>
+        </div>
+        <div class="grid2">
+          <div class="field">
+            <label data-i18n="field.timeaxis">BOLD 时间轴</label>
+            <select id="timeAxis"></select>
+          </div>
+          <div class="field">
+            <label data-i18n="field.nnet">无标签时网络数</label>
+            <input id="nNetworks" type="number" min="1" max="12" value="1"/>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2 data-i18n="sec.summary">数据摘要</h2></div>
+      <div class="card-body">
+        <div id="datasetSummary" class="muted" data-i18n="summary.empty">尚未导入数据。</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2 data-i18n="sec.notes">使用要点</h2></div>
+      <div class="card-body">
+        <div class="muted" id="notes"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ 2 方法 ============================ -->
+  <section class="col col-method">
+    <div class="card">
+      <div class="card-head">
+        <h2><span class="step">2</span><span data-i18n="sec.coupling">耦合定义</span></h2>
+        <div class="row">
+          <button id="allMetrics" class="btn ghost small" data-i18n="btn.all">全选</button>
+          <button id="noMetrics" class="btn ghost small" data-i18n="btn.none">清空</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="field" style="margin-top:0">
+          <label data-i18n="field.primary">主耦合定义（结果首屏）</label>
+          <select id="primaryMetric"></select>
+        </div>
+        <div class="muted" style="margin-top:10px" data-i18n="hint.metrics">可多选；每个定义都会给出耦合场、变异图与变异轴。</div>
+        <div id="metricGroups"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2 data-i18n="sec.estimators">估计量与零模型</h2></div>
+      <div class="card-body">
+        <div class="field">
+          <label data-i18n="field.mode">分析模式</label>
+          <select id="runMode">
+            <option value="variability" data-i18n="mode.variability">变异分析（≥2 名被试）</option>
+            <option value="magnitude" data-i18n="mode.magnitude">耦合值计算（单/多被试，导出逐被试值）</option>
+          </select>
+        </div>
+        <div class="field" id="variabilityFields">
+          <label data-i18n="field.estimator">离散度估计量（可多选）</label>
+          <div id="estimators" class="seg"></div>
+        </div>
+        <div id="magHint" class="muted" style="display:none;margin:4px 0 8px" data-i18n="mag.hint">耦合值模式跳过所有变异统计与零模型，直接输出每个被试的耦合值（边级与区域级 CSV、npz），单被试即可运行。</div>
+        <div class="grid2" id="nullPermFields">
+          <div class="field">
+            <label data-i18n="field.null">零模型</label>
+            <select id="nullModel"></select>
+          </div>
+          <div class="field">
+            <label data-i18n="field.perm">置换次数</label>
+            <input id="nPerm" type="number" min="50" max="5000" step="50" value="500"/>
+          </div>
+        </div>
+        <div class="grid2">
+          <div class="field">
+            <label data-i18n="field.seed">随机种子</label>
+            <input id="seed" type="number" value="0"/>
+          </div>
+          <div class="field">
+            <label data-i18n="field.behaviour">行为变量名</label>
+            <input id="behaviourLabel" type="text" value="behaviour"/>
+          </div>
+        </div>
+        <div class="row" id="sweepRow" style="margin-top:12px">
+          <span class="muted" data-i18n="field.sweep">同时扫描定义 × 估计量的坐标矩阵</span>
+          <input id="doSweep" type="checkbox" checked style="margin-left:auto"/>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2 data-i18n="sec.custom">自定义耦合函数</h2>
+        <span class="slot-badge" data-i18n="badge.opt">可选</span>
+      </div>
+      <div class="card-body">
+        <div class="muted" data-i18n="custom.hint">函数签名 couple(sc, fc, iu, iv, n_nodes)，返回边级或区域级数组。仅允许 numpy 与内置数学。</div>
+        <div class="field">
+          <label data-i18n="field.customName">名称</label>
+          <input id="customName" type="text" value="my_coupling"/>
+        </div>
+        <div class="field">
+          <label data-i18n="field.customCode">代码</label>
+          <textarea id="customSource" spellcheck="false"></textarea>
+        </div>
+        <div class="row wrap" style="margin-top:8px">
+          <button id="validateBtn" class="btn ghost small" data-i18n="btn.validate">验证</button>
+          <button id="addCustomBtn" class="btn ghost small" data-i18n="btn.addCustom">加入定义列表</button>
+          <button id="exampleBtn" class="btn ghost small" data-i18n="btn.example">填入示例</button>
+        </div>
+        <div id="customMsg" class="msg"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body" style="padding-top:16px">
+        <button id="runBtn" class="btn teal block" data-i18n="btn.run">开始分析</button>
+        <div class="progress"><i id="progressBar"></i></div>
+        <div id="runMsg" class="muted" style="margin-top:8px" data-i18n="status.wait">等待运行</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ 3 结果 ============================ -->
+  <section class="col col-result">
+    <div class="card">
+      <div class="card-head">
+        <h2><span class="step">3</span><span data-i18n="sec.results">结果</span></h2>
+        <span id="runtimeTag" class="muted"></span>
+      </div>
+      <div class="card-body">
+        <div id="resultEmpty" class="empty">
+          <div>
+            <h3 data-i18n="empty.title">结果将在这里出现</h3>
+            <p data-i18n="empty.body">导入数据 → 选择定义 → 点击「开始分析」。会输出耦合场、变异图、变异轴、震中、层间对比与 split-half 可靠性。</p>
+          </div>
+        </div>
+        <div id="resultBody" style="display:none"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer" data-i18n="footer.note">
+  SFCX 只做后处理：输入是已经算好的连接矩阵或 BOLD 序列，不做配准、去噪与纤维追踪。
+</footer>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+const state = {
+  catalog:null, dataset:null, result:null, online:false, legacy:false, lang:"zh",
+  metrics:new Set(["communicability"]), primary:"communicability",
+  estimators:new Set(["regional","edge"]), custom:[], jobTimer:null,
+  prefs:{fcKind:"pearson", timeAxis:"auto", null:"auto"}
+};
+
+/* --------------------------------------------------------------- i18n */
+const I18N = {
+  zh:{
+    "app.title":"结构–功能耦合分析台",
+    "app.subtitle":"导入 SC / FC / BOLD，选择坐标，计算耦合、变异轴与震中",
+    "btn.reset":"重置会话","btn.demo":"载入示例","btn.choose":"选择",
+    "btn.all":"全选","btn.none":"清空","btn.validate":"验证",
+    "btn.addCustom":"加入定义列表","btn.example":"填入示例","btn.run":"开始分析",
+    "sec.data":"数据导入","sec.summary":"数据摘要","sec.notes":"使用要点",
+    "sec.coupling":"耦合定义","sec.estimators":"估计量与零模型",
+    "sec.custom":"自定义耦合函数","sec.results":"结果",
+    "status.idle":"就绪","status.wait":"等待运行","status.importing":"上传中",
+    "status.imported":"已导入 {name}","status.importFail":"导入失败",
+    "status.demoGen":"生成示例数据","status.demoReady":"示例数据就绪","status.demoFail":"示例生成失败",
+    "status.running":"分析中","status.done":"完成","status.fail":"失败",
+    "status.pollFail":"轮询失败","status.startFail":"启动失败","status.noServer":"无法连接服务",
+    "status.autoOk":"已导入 {name} → {slots}","status.autoFail":"{name} 导入失败：{msg}",
+    "status.offline":"后端未连接，仅预览界面",
+    "status.legacy":"后端为旧版本，无法自动分配文件；请重启 python -m sfcx.webapp 后刷新",
+    "banner.legacy":"后端仍是旧版本，自动识别导入不可用。请重启 python -m sfcx.webapp 后刷新本页。",
+    "banner.file":"当前是以本地文件方式打开页面，无法调用分析服务。请在命令行运行 python -m sfcx.webapp --open，再使用它打开的地址。",
+    "banner.offline":"未连接到分析服务：请确认 python -m sfcx.webapp 正在运行，然后刷新本页。界面仍可预览，但无法导入或运行。",
+    "drop.title":"把数据文件拖到这里",
+    "drop.hint":"支持 .npz / .npy / .mat / .csv / .tsv / .txt；可一次拖入多个文件，自动分配到对应槽位。多被试批量：把多个同形状文件拖到某个槽位上（或在该槽位一次全选），自动堆叠为 N×P×P。",
+    "drop.button":"选择文件","drop.release":"松开即可导入",
+    "slot.sc":"结构连接 SC","slot.fc":"功能连接 FC","slot.bold":"BOLD 时间序列",
+    "slot.networks":"网络标签","slot.hierarchy":"皮层层级","slot.coords":"球面坐标",
+    "slot.behaviour":"行为变量","slot.covariates":"协变量",
+    "slothint.sc":"(P,P) 或 (N,P,P) 或 (N,E)；多被试可一次选多个同形状文件自动合并","slothint.fc":"(P,P) 或 (N,P,P) 或 (N,E)；支持多文件自动合并",
+    "slothint.bold":"(N,P,T) 或 (P,T)；BOLD 可一次选多个 (P,T) 文件自动合并","slothint.networks":"(P,) 整数",
+    "slothint.hierarchy":"(P,) 数值","slothint.coords":"(P,3)，启用 spin 零模型",
+    "slothint.behaviour":"(N,) 数值","slothint.covariates":"(N,k) 数值",
+    "badge.req":"必需","badge.opt":"可选","slot.empty":"未导入",
+    "slot.parsing":"解析中","slot.bad":"无法解析：{msg}",
+    "field.pipeline":"功能流程","field.state":"状态标签","field.timeaxis":"BOLD 时间轴",
+    "field.nnet":"无标签时网络数","field.primary":"主耦合定义（结果首屏）",
+    "field.estimator":"离散度估计量（可多选）","field.null":"零模型",
+    "field.perm":"置换次数","field.seed":"随机种子","field.behaviour":"行为变量名",
+    "field.sweep":"同时扫描定义 × 估计量的坐标矩阵","field.customName":"名称","field.customCode":"代码",
+    "field.mode":"分析模式","mode.variability":"变异分析（≥2 名被试）","mode.magnitude":"耦合值计算（单/多被试，导出逐被试值）",
+    "mag.hint":"耦合值模式跳过所有变异统计与零模型，直接输出每个被试的耦合值（边级与区域级 CSV、npz），单被试即可运行。",
+    "mag.title":"耦合值计算结果","mag.kind":"输出类型","mag.subjects":"被试数","mag.regions":"脑区数","mag.note":"说明",
+    "mag.meanMat":"组平均耦合矩阵",
+    "mag.regionalOnly":"区域级输出（无 P×P 矩阵）","mag.ok":"含组平均矩阵","mag.preview":"区域值预览（前 60 被试 × 前 400 脑区）",
+    "batch.progress":"合并导入 {i}/{n} · {name}","batch.done":"已合并 {n} 个文件到「{slot}」槽位",
+    "batch.name":"批量文件（{n} 名被试）",
+    "dl.coupling_npz":"耦合值 .npz","dl.coupling_csv":"逐被试 CSV 打包",
+    "hint.metrics":"可多选；每个定义都会给出耦合场、变异图与变异轴。",
+    "custom.hint":"函数签名 couple(sc, fc, iu, iv, n_nodes)，返回边级或区域级数组。仅允许 numpy 与内置数学。",
+    "opt.pearson":"Pearson 相关","opt.precision":"Precision 偏相关",
+    "opt.auto":"自动判断","opt.nodes":"行=脑区，列=时间","opt.time":"行=时间，列=脑区",
+    "opt.null.auto":"自动（有坐标用 spin，否则 msr）","opt.null.spin":"球面旋转",
+    "opt.null.msr":"Moran 谱随机化","opt.null.permutation":"直接打乱（仅冒烟测试）",
+    "est.regional":"区域级","est.node":"节点投影边级","est.edge":"原始边级",
+    "fam.static-communication":"静态通信","fam.dynamic-reliance":"动态依赖","fam.custom":"自定义",
+    "chip.slow.tip":"慢定义：按被试逐一优化/分解，大队列上耗时明显，已从默认扫描中排除",
+    "metric.direct":"直接对应","metric.cosine":"余弦相似度","metric.matching":"匹配指数",
+    "metric.communicability":"传播性","metric.mfpt":"平均首达时间","metric.path_ease":"路径长度易达性",
+    "metric.search_info":"搜索信息","metric.reliance":"FC–SC 剖面回归斜率",
+    "metric.rank_direct":"秩乘积对应","metric.degree_product":"度乘积",
+    "metric.diffusion_efficiency":"扩散效率","metric.flow":"两步流",
+    "summary.empty":"尚未导入数据。","unit.subjects":"被试","unit.nodes":"脑区",
+    "unit.edges":"边","unit.timepoints":"时间点","unit.shape":"形状",
+    "notes":[
+      "SC 与 FC 需为同一脑区划分、同一上三角顺序；本工具会自动展开矩阵。",
+      "BOLD 会按所选 pipeline（pearson / precision）转成 FC 边向量。",
+      "没有提供网络标签或层级时，会给出代理值并在结果中标注。",
+      "p 值必须与零模型一起报告；无坐标时自动退化为 msr。"
+    ],
+    "empty.title":"结果将在这里出现",
+    "empty.body":"导入数据 → 选择定义 → 点击「开始分析」。会输出耦合场、变异图、变异轴、震中、层间对比与 split-half 可靠性。",
+    "results.runtime":"{s} s · {n} 被试 × {p} 脑区 · {null} null",
+    "results.kpi.axis":"变异轴 r · {est}","results.kpi.perm":"置换 p · {null}",
+    "results.kpi.ctrl":"控制耦合幅度后 r","results.kpi.layers":"网络内−间 (p={p})",
+    "results.kpi.reliability":"split-half r","results.kpi.epicentres":"焦点震中",
+    "results.sweep":"坐标矩阵","results.sweepHint":"单元格为变异图与层级的 Spearman r；* 表示 p < 0.05。",
+    "results.sweepFigure":"轴强度在定义 × 估计量上的分布",
+    "results.fieldEdge":"边级耦合场","results.fieldRegional":"区域级自定义输出",
+    "cap.route_card":"坐标卡片","cap.spectrum":"降序变异谱与分布","cap.epicentres":"网络排序变异条带",
+    "cap.layers":"网络内 vs 网络间","cap.reliability":"split-half 一致性","cap.individual":"个体偏差谱斜率",
+    "table.scale":"尺度","table.mean":"均值","table.sd":"SD","table.r":"r","table.p":"p","table.n":"n",
+    "dl.html":"分析报告 HTML","dl.mat":"MATLAB 数据 .mat","dl.npz":"Python 数据 .npz",
+    "footer.note":"SFCX 只做后处理：输入是已经算好的连接矩阵或 BOLD 序列，不做配准、去噪与纤维追踪。",
+    "alert.metric":"请至少选择一个耦合定义","alert.estimator":"请至少选择一个估计量",
+    "custom.ok":"通过 · 返回 {kind} 形状 {shape} · 均值 {mean}",
+    "custom.added":"已加入定义列表：{name}","custom.needName":"请先填写名称"
+  },
+  en:{
+    "app.title":"Structure–function coupling workbench",
+    "app.subtitle":"Import SC / FC / BOLD, declare a coordinate, compute coupling, variability axes and epicentres",
+    "btn.reset":"Reset session","btn.demo":"Load demo","btn.choose":"Choose",
+    "btn.all":"Select all","btn.none":"Clear","btn.validate":"Validate",
+    "btn.addCustom":"Add definition","btn.example":"Fill example","btn.run":"Run analysis",
+    "sec.data":"Data import","sec.summary":"Dataset summary","sec.notes":"Notes",
+    "sec.coupling":"Coupling definitions","sec.estimators":"Estimators and null model",
+    "sec.custom":"Custom coupling function","sec.results":"Results",
+    "status.idle":"Ready","status.wait":"Waiting to run","status.importing":"Uploading",
+    "status.imported":"Imported {name}","status.importFail":"Import failed",
+    "status.demoGen":"Generating demo data","status.demoReady":"Demo data ready","status.demoFail":"Demo generation failed",
+    "status.running":"Running","status.done":"Done","status.fail":"Failed",
+    "status.pollFail":"Polling failed","status.startFail":"Could not start","status.noServer":"Cannot reach service",
+    "status.autoOk":"Imported {name} → {slots}","status.autoFail":"{name} failed: {msg}",
+    "status.offline":"Backend offline; preview only",
+    "status.legacy":"The backend is an older build and cannot route files automatically. Restart python -m sfcx.webapp and reload.",
+    "banner.legacy":"The backend is still the previous build, so automatic file routing is unavailable. Restart python -m sfcx.webapp and reload this page.",
+    "banner.file":"This page was opened as a local file, so the analysis service is unreachable. Run python -m sfcx.webapp --open and use the address it opens.",
+    "banner.offline":"No analysis service detected. Make sure python -m sfcx.webapp is running, then reload. The interface is still browsable but cannot import or run.",
+    "drop.title":"Drop data files here",
+    "drop.hint":"Accepts .npz / .npy / .mat / .csv / .tsv / .txt. Drop several files at once; each is routed to the right slot automatically. Multi-subject batch: drop several same-shape files onto one slot (or multi-select in its picker) to stack them into N×P×P.",
+    "drop.button":"Choose files","drop.release":"Release to import",
+    "slot.sc":"Structural connectivity SC","slot.fc":"Functional connectivity FC","slot.bold":"BOLD time series",
+    "slot.networks":"Network labels","slot.hierarchy":"Cortical hierarchy","slot.coords":"Spherical coordinates",
+    "slot.behaviour":"Behavioural variable","slot.covariates":"Covariates",
+    "slothint.sc":"(P,P) or (N,P,P) or (N,E); multi-subject: pick several same-shape files at once to stack","slothint.fc":"(P,P) or (N,P,P) or (N,E); multi-file stacking supported",
+    "slothint.bold":"(N,P,T) or (P,T); multiple (P,T) files can be selected and stacked","slothint.networks":"(P,) integers",
+    "slothint.hierarchy":"(P,) values","slothint.coords":"(P,3); enables the spin null",
+    "slothint.behaviour":"(N,) values","slothint.covariates":"(N,k) values",
+    "badge.req":"required","badge.opt":"optional","slot.empty":"not loaded",
+    "slot.parsing":"reading","slot.bad":"Cannot parse: {msg}",
+    "field.pipeline":"Functional pipeline","field.state":"State label","field.timeaxis":"BOLD time axis",
+    "field.nnet":"Networks when unlabelled","field.primary":"Primary definition (first screen)",
+    "field.estimator":"Variability estimators (multi-select)","field.null":"Null model",
+    "field.perm":"Permutations","field.seed":"Random seed","field.behaviour":"Behaviour label",
+    "field.sweep":"Also sweep the definition × estimator grid","field.customName":"Name","field.customCode":"Code",
+    "field.mode":"Analysis mode","mode.variability":"Variability analysis (≥2 subjects)","mode.magnitude":"Coupling values (single or batch, per-subject export)",
+    "mag.hint":"Coupling-value mode skips all dispersion statistics and null models and directly outputs every subject's coupling values (edge & regional CSV, npz); a single subject is enough.",
+    "mag.title":"Coupling-value results","mag.kind":"Output type","mag.subjects":"Subjects","mag.regions":"Regions","mag.note":"Note",
+    "mag.meanMat":"Mean coupling matrix",
+    "mag.regionalOnly":"Regional output only (no P×P matrix)","mag.ok":"Includes group-mean matrix","mag.preview":"Regional preview (first 60 subjects × 400 parcels)",
+    "batch.progress":"Stacking {i}/{n} · {name}","batch.done":"Merged {n} files into the “{slot}” slot",
+    "batch.name":"Batch file ({n} subjects)",
+    "dl.coupling_npz":"Coupling values .npz","dl.coupling_csv":"Per-subject CSV (zip)",
+    "hint.metrics":"Multi-select; each definition yields a coupling field, variability map and variability axis.",
+    "custom.hint":"Signature couple(sc, fc, iu, iv, n_nodes), returning an edge- or region-level array. Only numpy and builtins are allowed.",
+    "opt.pearson":"Pearson correlation","opt.precision":"Precision partial correlation",
+    "opt.auto":"Detect automatically","opt.nodes":"rows = regions, columns = time","opt.time":"rows = time, columns = regions",
+    "opt.null.auto":"auto (spin when coordinates exist, else msr)","opt.null.spin":"spherical rotation",
+    "opt.null.msr":"Moran spectral randomisation","opt.null.permutation":"plain shuffle (smoke tests)",
+    "est.regional":"Regional","est.node":"Node-projected edge","est.edge":"Raw edge",
+    "fam.static-communication":"Static communication","fam.dynamic-reliance":"Dynamic reliance","fam.custom":"Custom",
+    "chip.slow.tip":"Slow definition: per-subject optimisation or decomposition; markedly slower on large cohorts, excluded from the default sweep",
+    "metric.direct":"Direct correspondence","metric.cosine":"Cosine similarity","metric.matching":"Matching index",
+    "metric.communicability":"Communicability","metric.mfpt":"Mean first-passage time","metric.path_ease":"Path-length ease",
+    "metric.search_info":"Search information","metric.reliance":"FC-on-SC profile slope",
+    "metric.rank_direct":"Rank-product correspondence","metric.degree_product":"Degree product",
+    "metric.diffusion_efficiency":"Diffusion efficiency","metric.flow":"Two-step flow",
+    "summary.empty":"No data loaded yet.","unit.subjects":"subjects","unit.nodes":"regions",
+    "unit.edges":"edges","unit.timepoints":"time points","unit.shape":"shape",
+    "notes":[
+      "SC and FC must share the same partition and upper-triangle order; matrices are expanded automatically.",
+      "BOLD is converted to FC edges with the selected pipeline (pearson / precision).",
+      "When network labels or a hierarchy are absent, proxy values are used and flagged in the results.",
+      "p values are only meaningful with the null model; without coordinates the null falls back to msr."
+    ],
+    "empty.title":"Results will appear here",
+    "empty.body":"Import data → choose definitions → click Run. You will get coupling fields, variability maps, variability axes, epicentres, layer contrast and split-half reliability.",
+    "results.runtime":"{s} s · {n} subjects × {p} regions · {null} null",
+    "results.kpi.axis":"axis r · {est}","results.kpi.perm":"permutation p · {null}",
+    "results.kpi.ctrl":"r after controlling amplitude","results.kpi.layers":"within−between (p={p})",
+    "results.kpi.reliability":"split-half r","results.kpi.epicentres":"focal epicentres",
+    "results.sweep":"Coordinate grid","results.sweepHint":"Cells are Spearman r between the variability map and the hierarchy; * marks p < 0.05.",
+    "results.sweepFigure":"Axis strength across definitions × estimators",
+    "results.fieldEdge":"edge-level coupling field","results.fieldRegional":"region-level custom output",
+    "cap.route_card":"Coordinate card","cap.spectrum":"Descending variability spectrum","cap.epicentres":"Network-ordered variability strips",
+    "cap.layers":"Within vs between networks","cap.reliability":"Split-half agreement","cap.individual":"Individual deviation slopes",
+    "table.scale":"Scale","table.mean":"Mean","table.sd":"SD","table.r":"r","table.p":"p","table.n":"n",
+    "dl.html":"Analysis report (HTML)","dl.mat":"MATLAB data .mat","dl.npz":"Python data .npz",
+    "footer.note":"SFCX is post-processing only: it takes precomputed connectivity matrices or BOLD series and does not register, denoise or tractography.",
+    "alert.metric":"Select at least one coupling definition","alert.estimator":"Select at least one estimator",
+    "custom.ok":"Passed · returns {kind} of shape {shape} · mean {mean}",
+    "custom.added":"Added to the definition list: {name}","custom.needName":"Enter a name first"
+  }
+};
+
+const FALLBACK_CATALOG = {
+  metrics:[
+    {id:"direct", family:"static-communication"},
+    {id:"cosine", family:"static-communication"},
+    {id:"matching", family:"static-communication"},
+    {id:"communicability", family:"static-communication"},
+    {id:"mfpt", family:"static-communication"},
+    {id:"path_ease", family:"static-communication"},
+    {id:"search_info", family:"static-communication"},
+    {id:"reliance", family:"dynamic-reliance"}
+  ],
+  slots:{sc:1, fc:1, bold:1, networks:1, hierarchy:1, coords:1, behaviour:1, covariates:1},
+  nulls:["auto","spin","msr","permutation"],
+  estimators:["regional","node","edge"],
+  custom_template:
+    "def couple(sc, fc, iu, iv, n_nodes):\n" +
+    "    \"\"\"sc, fc: (n_subjects, n_edges); iu, iv: edge endpoints.\"\"\"\n" +
+    "    zs = zscore_edges(sc, iu, n_nodes)\n" +
+    "    zf = zscore_edges(fc, iu, n_nodes)\n" +
+    "    return zs * zf\n"
+};
+
+const SLOT_ORDER = ["sc","fc","bold","networks","hierarchy","coords","behaviour","covariates"];
+const METRIC_ORDER = ["direct","cosine","matching","communicability","mfpt","path_ease","search_info","reliance"];
+
+function t(key, vars){
+  const table = I18N[state.lang] || I18N.zh;
+  let s = table[key];
+  if(s === undefined) s = I18N.zh[key];
+  if(s === undefined) s = key;
+  if(vars && typeof s === "string"){
+    Object.keys(vars).forEach(k=>{ s = s.split("{"+k+"}").join(vars[k]); });
+  }
+  return s;
+}
+function currentLang(){
+  try{ return localStorage.getItem("sfcx_lang") || "zh"; }catch(e){ return "zh"; }
+}
+function setLang(lang){
+  state.lang = lang;
+  try{ localStorage.setItem("sfcx_lang", lang); }catch(e){}
+  applyLang();
+}
+function applyLang(){
+  document.documentElement.lang = state.lang === "zh" ? "zh-CN" : "en";
+  $("#langBtn").textContent = state.lang === "zh" ? "EN" : "中文";
+  $$("[data-i18n]").forEach(el=>{ el.textContent = t(el.dataset.i18n); });
+  $$(".slot").forEach(el=>{ el.dataset.dropLabel = t("drop.release"); });
+  if(state.status){
+    $("#statusText").textContent = t(state.status.key, state.status.vars);
+    $("#statusDot").className = "dot" + (state.status.kind ? " "+state.status.kind : "");
+  }
+  if(state.catalog){
+    renderSlots();
+    renderControls();
+    renderPrimaryMetric();
+    renderMetrics();
+    renderNotes();
+    renderDataset();
+  }
+  if(state.result) renderResults(state.result);
+}
+
+/* ------------------------------------------------------------- helpers */
+async function api(path, opts){
+  const res = await fetch(path, opts);
+  const data = await res.json().catch(()=>({error:"non-JSON response"}));
+  if(!res.ok || data.error) throw new Error(data.error || ("HTTP "+res.status));
+  return data;
+}
+function setStatus(key, vars, kind){
+  state.status = {key, vars: vars || null, kind: kind || ""};
+  $("#statusText").textContent = t(key, vars);
+  const d = $("#statusDot");
+  d.className = "dot" + (kind ? " "+kind : "");
+}
+function warnText(w){
+  if(w && typeof w === "object" && !Array.isArray(w)){
+    if(state.lang === "en") return w.en || w.zh || JSON.stringify(w);
+    return w.zh || w.en || JSON.stringify(w);
+  }
+  return String(w);
+}
+function fmt(x, nd=3){
+  if(x === null || x === undefined || Number.isNaN(x)) return "—";
+  return Number(x).toFixed(nd);
+}
+function pfmt(p){
+  if(p === null || p === undefined) return "—";
+  return p < 0.001 ? p.toExponential(1) : Number(p).toFixed(3);
+}
+function heatColor(r){
+  if(r === null || r === undefined || Number.isNaN(r)) return "#f2f5f9";
+  const v = Math.max(-1, Math.min(1, r));
+  const pos = [231,111,81], neg = [63,110,160], mid = [255,255,255];
+  const c = v >= 0 ? pos : neg;
+  const tt = Math.abs(v) * 0.82;
+  const mix = mid.map((m,i)=> Math.round(m*(1-tt) + c[i]*tt));
+  return `rgb(${mix.join(",")})`;
+}
+function textColor(r){ return Math.abs(r||0) > 0.55 ? "#fff" : "#1f3a5f"; }
+function toast(text, isErr){
+  const el = $("#toast");
+  el.textContent = text;
+  el.className = "toast on" + (isErr ? " err" : "");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>{ el.className = "toast" + (isErr ? " err" : ""); }, 4200);
+}
+
+/* --------------------------------------------------------------- boot */
+async function boot(){
+  state.lang = currentLang();
+  applyLang();
+  try{
+    state.catalog = await api("/api/catalog");
+    state.online = true;
+    if(!state.catalog.api_version){
+      state.legacy = true;
+      const banner = $("#connBanner");
+      banner.textContent = t("banner.legacy");
+      banner.classList.add("on");
+    }
+  }catch(err){
+    state.catalog = FALLBACK_CATALOG;
+    state.online = false;
+    const banner = $("#connBanner");
+    banner.textContent = t(location.protocol === "file:" ? "banner.file" : "banner.offline");
+    banner.classList.add("on");
+    $("#runBtn").disabled = true;
+    $("#demoBtn").disabled = true;
+    setStatus("status.offline", null, "err");
+  }
+  if(!state.catalog.slots) state.catalog.slots = FALLBACK_CATALOG.slots;
+  $("#customSource").value = state.catalog.custom_template || FALLBACK_CATALOG.custom_template;
+  applyLang();
+  await refreshDataset();
+}
+
+/* --------------------------------------------------------------- slots */
+function slotMeta(key){
+  return (state.catalog && state.catalog.slots && state.catalog.slots[key]) || {};
+}
+function renderSlots(){
+  const wrap = $("#slots");
+  wrap.innerHTML = "";
+  SLOT_ORDER.forEach(key=>{
+    const meta = slotMeta(key);
+    const el = document.createElement("div");
+    el.className = "slot";
+    el.dataset.slot = key;
+    el.dataset.dropLabel = t("drop.release");
+    const accept = meta.accept || ".npy,.npz,.mat,.csv,.tsv,.txt";
+    el.innerHTML = `
+      <div class="slot-main">
+        <span class="slot-title">${t("slot."+key)}</span>
+        <span class="slot-badge ${key==='sc'?'req':''}">${key==='sc'?t("badge.req"):t("badge.opt")}</span>
+      </div>
+      <span class="slot-hint">${t("slothint."+key)}</span>
+      <div class="slot-row">
+        <span class="slot-file empty">${t("slot.empty")}</span>
+        <button type="button" class="btn ghost small slot-pick">${t("btn.choose")}</button>
+      </div>
+      <input type="file" accept="${accept}" multiple/>`;
+    const input = $("input", el);
+    const pick = $(".slot-pick", el);
+    pick.addEventListener("click", e=>{ e.stopPropagation(); input.click(); });
+    el.addEventListener("click", e=>{
+      if(e.target === input) return;
+      input.click();
+    });
+    input.addEventListener("click", e=> e.stopPropagation());
+    input.addEventListener("change", ()=>{
+      if(input.files.length === 1) upload(key, input.files[0]);
+      else if(input.files.length > 1) batchUpload(key, Array.from(input.files));
+      input.value = "";
+    });
+    el.addEventListener("dragover", e=>{
+      e.preventDefault(); e.stopPropagation(); el.classList.add("drag");
+    });
+    el.addEventListener("dragleave", ()=> el.classList.remove("drag"));
+    el.addEventListener("drop", e=>{
+      e.preventDefault(); e.stopPropagation(); el.classList.remove("drag");
+      const fs = Array.from(e.dataTransfer.files || []);
+      if(fs.length === 1) upload(key, fs[0]);
+      else if(fs.length > 1) batchUpload(key, fs);
+    });
+    wrap.appendChild(el);
+  });
+}
+
+function postRaw(url, file, onProgress){
+  return new Promise((resolve, reject)=>{
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url);
+    xhr.setRequestHeader("Content-Type", "application/octet-stream");
+    xhr.upload.onprogress = e=>{
+      if(onProgress && e.lengthComputable) onProgress(e.loaded / e.total);
+    };
+    xhr.onload = ()=>{
+      let data = null;
+      try{ data = JSON.parse(xhr.responseText); }catch(e){}
+      if(xhr.status >= 400 || (data && data.error)){
+        reject(new Error((data && data.error) || ("HTTP "+xhr.status)));
+        return;
+      }
+      if(!data){ reject(new Error("non-JSON response")); return; }
+      resolve(data);
+    };
+    xhr.onerror = ()=> reject(new Error("network error"));
+    xhr.send(file);
+  });
+}
+
+async function upload(slot, file){
+  const el = document.querySelector(`.slot[data-slot="${slot}"]`);
+  if(!el) return;
+  const line = $(".slot-file", el);
+  line.className = "slot-file";
+  line.textContent = `${t("status.importing")} · ${file.name} · 0%`;
+  try{
+    const q = `?slot=${encodeURIComponent(slot)}&name=${encodeURIComponent(file.name)}`;
+    const data = await postRaw("/api/upload"+q, file, frac=>{
+      line.textContent = `${t("status.importing")} · ${file.name} · ${Math.round(frac*100)}%`;
+    });
+    state.dataset = data.dataset;
+    renderDataset();
+    setStatus("status.imported", {name:file.name}, "live");
+    if(!state.metrics.size) state.metrics.add(state.primary);
+  }catch(err){
+    line.className = "slot-file";
+    line.textContent = t("slot.bad", {msg:err.message});
+    setStatus("status.importFail", null, "err");
+    toast(`${file.name}: ${err.message}`, true);
+  }
+}
+
+function guessSlot(name){
+  const n = String(name || "").toLowerCase();
+  const rules = [
+    [/sc|struct/, "sc"], [/fc|func|corr|conn/, "fc"], [/bold|timeseries|ts/, "bold"],
+    [/net|yeo|label|comm/, "networks"], [/hier|level|grad/, "hierarchy"],
+    [/coord|sphere|xyz/, "coords"], [/behav|target/, "behaviour"], [/cov/, "covariates"]
+  ];
+  for(const [re, slot] of rules){ if(re.test(n)) return slot; }
+  return null;
+}
+
+async function uploadAuto(file){
+  if(!state.online){ toast(t("banner.offline"), true); return; }
+  if(state.legacy){
+    const slot = guessSlot(file.name);
+    if(!slot){ toast(t("status.legacy"), true); return; }
+    return upload(slot, file);
+  }
+  setStatus("status.importing", {name:file.name}, "run");
+  try{
+    const data = await postRaw(`/api/upload?slot=auto&name=${encodeURIComponent(file.name)}`, file);
+    state.dataset = data.dataset;
+    renderDataset();
+    const slots = (data.slots || []).map(s=>t("slot."+s)).join(" · ");
+    setStatus("status.imported", {name:file.name}, "live");
+    toast(t("status.autoOk", {name:file.name, slots:slots}));
+  }catch(err){
+    setStatus("status.importFail", null, "err");
+    toast(t("status.autoFail", {name:file.name, msg:err.message}), true);
+  }
+}
+
+async function uploadMany(files){
+  // group by name hint; groups of ≥2 same-slot files become a stacked batch
+  const groups = new Map();
+  const singles = [];
+  for(const f of files){
+    const slot = guessSlot(f.name);
+    if(slot) {
+      if(!groups.has(slot)) groups.set(slot, []);
+      groups.get(slot).push(f);
+    } else {
+      singles.push(f);
+    }
+  }
+  for(const [slot, fs] of groups){
+    if(fs.length > 1) await batchUpload(slot, fs);
+    else await uploadAuto(fs[0]);
+  }
+  for(const f of singles){ await uploadAuto(f); }
+}
+
+async function batchUpload(slot, files){
+  if(!state.online){ toast(t("banner.offline"), true); return; }
+  const el = document.querySelector(`.slot[data-slot="${slot}"]`);
+  const line = el ? $(".slot-file", el) : null;
+  if(line) line.className = "slot-file";
+  setStatus("status.importing", {name: t("batch.progress", {i:0, n:files.length, name:""})}, "run");
+  try{
+    for(let i = 0; i < files.length; i++){
+      const q = `?slot=${encodeURIComponent(slot)}&name=${encodeURIComponent(files[i].name)}`;
+      if(line) line.textContent = t("batch.progress", {i:i+1, n:files.length, name:files[i].name});
+      await postRaw("/api/batch/upload"+q, files[i]);
+    }
+    const data = await api(`/api/batch/finish?slot=${encodeURIComponent(slot)}`, {method:"POST"});
+    state.dataset = data.dataset;
+    renderDataset();
+    setStatus("status.imported", {name: t("batch.name", {n:files.length})}, "live");
+    toast(t("batch.done", {n:files.length, slot: t("slot."+slot)}));
+  }catch(err){
+    try{ await api(`/api/batch/cancel?slot=${encodeURIComponent(slot)}`, {method:"POST"}); }catch(e){}
+    if(line){ line.className = "slot-file"; line.textContent = t("slot.bad", {msg:err.message}); }
+    setStatus("status.importFail", null, "err");
+    toast(err.message, true);
+  }
+}
+
+async function refreshDataset(){
+  if(!state.online) return;
+  try{
+    state.dataset = await api("/api/dataset");
+    renderDataset();
+  }catch(err){ /* idle */ }
+}
+
+function renderDataset(){
+  const d = state.dataset;
+  if(!d) return;
+  $$(".slot").forEach(el=>{
+    const slot = el.dataset.slot;
+    const f = d.files ? d.files[slot] : null;
+    const line = $(".slot-file", el);
+    if(f && f.info && !f.info.error){
+      el.classList.add("filled");
+      const info = f.info;
+      const bits = [];
+      if(info.n_subjects) bits.push(info.n_subjects+" "+t("unit.subjects"));
+      if(info.n_nodes) bits.push(info.n_nodes+" "+t("unit.nodes"));
+      if(info.n_edges) bits.push(info.n_edges+" "+t("unit.edges"));
+      if(info.n_timepoints) bits.push(info.n_timepoints+" "+t("unit.timepoints"));
+      if(info.shape) bits.push(t("unit.shape")+" "+info.shape.join("×"));
+      line.textContent = `${f.name} · ${bits.join(" · ")}`;
+      line.classList.remove("empty");
+    }else{
+      el.classList.remove("filled");
+      line.textContent = f && f.info && f.info.error
+        ? t("slot.bad", {msg:f.info.error})
+        : t("slot.empty");
+      line.classList.add("empty");
+    }
+  });
+  const parts = [];
+  if(d.n_subjects) parts.push(`<b>${d.n_subjects}</b> ${t("unit.subjects")}`);
+  if(d.n_nodes) parts.push(`<b>${d.n_nodes}</b> ${t("unit.nodes")}`);
+  if(d.n_nodes) parts.push(`<b>${d.n_nodes*(d.n_nodes-1)/2}</b> ${t("unit.edges")}`);
+  let html = parts.length ? parts.join(" · ") : t("summary.empty");
+  if(d.problems && d.problems.length){
+    html += d.problems.map(p=>`<div class="notice err">${warnText(p)}</div>`).join("");
+  }
+  $("#datasetSummary").innerHTML = html;
+}
+
+/* ------------------------------------------------------------- controls */
+function renderControls(){
+  const fc = $("#fcKind");
+  const keepFc = state.prefs.fcKind;
+  fc.innerHTML = `<option value="pearson">${t("opt.pearson")}</option>
+                  <option value="precision">${t("opt.precision")}</option>`;
+  fc.value = keepFc;
+  fc.onchange = ()=>{ state.prefs.fcKind = fc.value; };
+
+  const ta = $("#timeAxis");
+  const keepTa = state.prefs.timeAxis;
+  ta.innerHTML = `<option value="auto">${t("opt.auto")}</option>
+                  <option value="nodes">${t("opt.nodes")}</option>
+                  <option value="time">${t("opt.time")}</option>`;
+  ta.value = keepTa;
+  ta.onchange = ()=>{ state.prefs.timeAxis = ta.value; };
+
+  const nulls = (state.catalog.nulls || FALLBACK_CATALOG.nulls).map(n=>{
+    const id = typeof n === "string" ? n : n.id;
+    return {id};
+  });
+  const sel = $("#nullModel");
+  sel.innerHTML = nulls.map(n=>
+    `<option value="${n.id}">${t("opt.null."+n.id)}</option>`).join("");
+  sel.value = state.prefs.null;
+  sel.onchange = ()=>{ state.prefs.null = sel.value; };
+
+  renderEstimators();
+}
+
+function renderEstimators(){
+  const wrap = $("#estimators");
+  wrap.innerHTML = "";
+  (state.catalog.estimators || FALLBACK_CATALOG.estimators).forEach(e=>{
+    const id = typeof e === "string" ? e : e.id;
+    const chip = document.createElement("div");
+    chip.className = "chip" + (state.estimators.has(id) ? " on" : "");
+    chip.textContent = t("est."+id);
+    chip.addEventListener("click", ()=>{
+      if(state.estimators.has(id)){ state.estimators.delete(id); chip.classList.remove("on"); }
+      else { state.estimators.add(id); chip.classList.add("on"); }
+    });
+    wrap.appendChild(chip);
+  });
+}
+
+/* ------------------------------------------------------------- metrics */
+function metricItems(){
+  const raw = state.catalog.metrics || [];
+  const seen = new Set();
+  const items = [];
+  raw.forEach(m=>{
+    const id = m.id;
+    if(seen.has(id)) return;
+    seen.add(id);
+    items.push({id, family:m.family || "static-communication", label:m.label,
+                cost:m.cost || "fast"});
+  });
+  METRIC_ORDER.forEach(id=>{
+    if(!seen.has(id)) items.push({id, family:"static-communication"});
+  });
+  return items;
+}
+function metricLabel(m){
+  const key = "metric."+m.id;
+  const tr = I18N[state.lang][key];
+  return tr || m.label || m.id;
+}
+function familyLabel(fam){
+  return t("fam."+fam) || fam;
+}
+
+function renderPrimaryMetric(){
+  const sel = $("#primaryMetric");
+  const groups = {};
+  metricItems().forEach(m=>{ (groups[m.family] = groups[m.family] || []).push(m); });
+  const html = Object.keys(groups).map(fam=>{
+    const opts = groups[fam].map(m=>
+      `<option value="${m.id}">${metricLabel(m)}</option>`).join("");
+    return `<optgroup label="${familyLabel(fam)}">${opts}</optgroup>`;
+  }).join("");
+  sel.innerHTML = html;
+  sel.value = state.primary;
+  sel.onchange = ()=>{
+    state.primary = sel.value;
+    state.metrics.add(state.primary);
+    renderMetrics();
+  };
+}
+
+function renderMetrics(){
+  const groups = {};
+  metricItems().forEach(m=>{ (groups[m.family] = groups[m.family] || []).push(m); });
+  const wrap = $("#metricGroups");
+  wrap.innerHTML = "";
+  Object.keys(groups).forEach(fam=>{
+    const block = document.createElement("div");
+    block.className = "chip-group";
+    block.innerHTML = `<div class="chip-group-title">${familyLabel(fam)}</div>`;
+    const chips = document.createElement("div");
+    chips.className = "chips";
+    groups[fam].forEach(m=>{
+      const chip = document.createElement("div");
+      const slow = m.cost === "slow";
+      chip.className = "chip" + (state.metrics.has(m.id) ? " on" : "") +
+                       (fam === "custom" ? " custom" : "") + (slow ? " slow" : "");
+      chip.textContent = metricLabel(m) + (slow ? " ·" : "");
+      chip.title = slow ? t("chip.slow.tip") : "";
+      chip.dataset.id = m.id;
+      chip.addEventListener("click", ()=>{
+        if(state.metrics.has(m.id)){ state.metrics.delete(m.id); chip.classList.remove("on"); }
+        else { state.metrics.add(m.id); chip.classList.add("on"); }
+        if(!state.metrics.size){ state.metrics.add(state.primary); renderMetrics(); }
+      });
+      chips.appendChild(chip);
+    });
+    block.appendChild(chips);
+    wrap.appendChild(block);
+  });
+}
+
+function renderNotes(){
+  const notes = I18N[state.lang].notes || [];
+  $("#notes").innerHTML = notes.map(n=>"· "+n).join("<br/>");
+}
+
+/* -------------------------------------------------------------- custom */
+function showCustomMsg(text, ok){
+  const el = $("#customMsg");
+  el.className = "msg " + (ok ? "ok" : "bad");
+  el.textContent = text;
+}
+
+$("#exampleBtn").addEventListener("click", ()=>{
+  $("#customSource").value = state.catalog.custom_template || FALLBACK_CATALOG.custom_template;
+});
+$("#validateBtn").addEventListener("click", async ()=>{
+  try{
+    const r = await api("/api/custom/validate", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({name: $("#customName").value, source: $("#customSource").value})
+    });
+    showCustomMsg(t("custom.ok", {kind:r.kind, shape:r.shape.join("×"), mean:fmt(r.mean)}), true);
+  }catch(err){ showCustomMsg(err.message, false); }
+});
+$("#addCustomBtn").addEventListener("click", async ()=>{
+  const name = $("#customName").value.trim();
+  const source = $("#customSource").value;
+  if(!name){ showCustomMsg(t("custom.needName"), false); return; }
+  try{
+    const r = await api("/api/custom/validate", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({name, source})
+    });
+    state.custom = state.custom.filter(c=>c.name !== name);
+    state.custom.push({name, source, description:"custom"});
+    state.metrics.add(name);
+    state.catalog.metrics = (state.catalog.metrics || []).filter(m=>m.id !== name);
+    state.catalog.metrics.push({id:name, family:"custom", label:name});
+    renderPrimaryMetric();
+    renderMetrics();
+    showCustomMsg(t("custom.added", {name}), true);
+  }catch(err){ showCustomMsg(err.message, false); }
+});
+
+/* --------------------------------------------------------------- reset */
+$("#resetBtn").addEventListener("click", async ()=>{
+  if(state.online){
+    try{ await api("/api/reset", {method:"POST"}); }catch(e){}
+  }
+  state.dataset = null;
+  state.custom = [];
+  state.metrics = new Set(["communicability"]);
+  state.primary = "communicability";
+  state.result = null;
+  $("#resultBody").style.display = "none";
+  $("#resultEmpty").style.display = "grid";
+  renderSlots(); renderPrimaryMetric(); renderMetrics(); renderDataset();
+  setStatus("status.idle", null, "");
+});
+
+/* ---------------------------------------------------------------- demo */
+$("#demoBtn").addEventListener("click", async ()=>{
+  $("#demoBtn").disabled = true;
+  $("#runBtn").disabled = true;
+  setStatus("status.demoGen", null, "run");
+  try{
+    const data = await api("/api/demo", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({n_subjects:240, n_nodes:120, seed:0})
+    });
+    state.dataset = data.dataset;
+    renderDataset();
+    setStatus("status.demoReady", null, "live");
+  }catch(err){ setStatus("status.demoFail", null, "err"); toast(err.message, true); }
+  finally{ $("#demoBtn").disabled = false; $("#runBtn").disabled = false; }
+});
+
+/* -------------------------------------------------------------- upload */
+const dropzone = $("#dropzone");
+const autoInput = $("#autoInput");
+$("#browseBtn").addEventListener("click", e=>{ e.stopPropagation(); autoInput.click(); });
+dropzone.addEventListener("click", e=>{
+  if(e.target === autoInput || e.target.closest("button")) return;
+  autoInput.click();
+});
+autoInput.addEventListener("click", e=> e.stopPropagation());
+autoInput.addEventListener("change", ()=>{
+  if(autoInput.files.length) uploadMany(Array.from(autoInput.files));
+  autoInput.value = "";
+});
+["dragenter","dragover"].forEach(ev=>{
+  dropzone.addEventListener(ev, e=>{ e.preventDefault(); e.stopPropagation(); dropzone.classList.add("drag"); });
+});
+["dragleave","drop"].forEach(ev=>{
+  dropzone.addEventListener(ev, e=>{ e.preventDefault(); e.stopPropagation(); dropzone.classList.remove("drag"); });
+});
+dropzone.addEventListener("drop", e=>{
+  if(e.dataTransfer.files.length) uploadMany(Array.from(e.dataTransfer.files));
+});
+/* keep the browser from opening a file dropped just outside a target */
+["dragover","drop"].forEach(ev=>{
+  window.addEventListener(ev, e=>{
+    if(e.target.closest(".slot") || e.target.closest("#dropzone")) return;
+    e.preventDefault();
+  });
+});
+
+/* ----------------------------------------------------------------- run */
+$("#allMetrics").addEventListener("click", ()=>{
+  metricItems().forEach(m=>state.metrics.add(m.id)); renderMetrics();
+});
+$("#noMetrics").addEventListener("click", ()=>{
+  state.metrics.clear(); state.metrics.add(state.primary); renderMetrics();
+});
+
+$("#runBtn").addEventListener("click", startRun);
+
+$("#runMode").addEventListener("change", ()=>{
+  const mag = $("#runMode").value === "magnitude";
+  $("#variabilityFields").style.display = mag ? "none" : "";
+  $("#nullPermFields").style.display = mag ? "none" : "";
+  $("#sweepRow").style.display = mag ? "none" : "";
+  $("#magHint").style.display = mag ? "" : "none";
+});
+
+async function startRun(){
+  if(!state.online){ toast(t("banner.offline"), true); return; }
+  const mag = $("#runMode").value === "magnitude";
+  if(state.metrics.size === 0){ toast(t("alert.metric"), true); return; }
+  if(!mag && state.estimators.size === 0){ toast(t("alert.estimator"), true); return; }
+  const ordered = [state.primary].concat(Array.from(state.metrics).filter(m=>m !== state.primary));
+  const mode = $("#runMode").value;
+  const settings = {
+    mode,
+    metrics: ordered,
+    estimators: Array.from(state.estimators),
+    n_perm: Number($("#nPerm").value) || 500,
+    null: $("#nullModel").value,
+    seed: Number($("#seed").value) || 0,
+    fc_kind: $("#fcKind").value,
+    time_axis: $("#timeAxis").value,
+    state: $("#stateName").value || "rest",
+    n_networks: Number($("#nNetworks").value) || 1,
+    behaviour_label: $("#behaviourLabel").value || "behaviour",
+    sweep: $("#doSweep").checked,
+    custom: state.custom
+  };
+  $("#runBtn").disabled = true;
+  setStatus("status.running", null, "run");
+  $("#runMsg").textContent = t("status.wait");
+  $("#progressBar").style.width = "2%";
+  try{
+    await api("/api/run", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify(settings)
+    });
+    pollJob();
+  }catch(err){
+    $("#runBtn").disabled = false;
+    setStatus("status.startFail", null, "err");
+    $("#runMsg").textContent = err.message;
+  }
+}
+
+function pollJob(){
+  clearTimeout(state.jobTimer);
+  state.jobTimer = setTimeout(async ()=>{
+    try{
+      const job = await api("/api/job");
+      $("#progressBar").style.width = Math.round((job.progress||0)*100) + "%";
+      $("#runMsg").textContent = job.message || t("status.running");
+      if(job.status === "done"){
+        $("#runBtn").disabled = false;
+        setStatus("status.done", null, "live");
+        state.result = job.result;
+        renderResults(job.result);
+        return;
+      }
+      if(job.status === "error"){
+        $("#runBtn").disabled = false;
+        setStatus("status.fail", null, "err");
+        $("#runMsg").textContent = job.error || t("status.fail");
+        return;
+      }
+      pollJob();
+    }catch(err){
+      $("#runBtn").disabled = false;
+      setStatus("status.pollFail", null, "err");
+      $("#runMsg").textContent = err.message;
+    }
+  }, 600);
+}
+
+/* ------------------------------------------------------------- results */
+function renderResults(r){
+  if(!r) return;
+  state.result = r;
+  $("#resultEmpty").style.display = "none";
+  $("#resultBody").style.display = "block";
+  const meta = r.meta || {};
+  $("#runtimeTag").textContent = t("results.runtime", {
+    s: r.runtime_s || "?", n: meta.n_subjects, p: meta.n_nodes, null: meta.null_model
+  });
+
+  const parts = [];
+  if(r.warnings && r.warnings.length){
+    parts.push(r.warnings.map(w=>`<div class="notice">${warnText(w)}</div>`).join(""));
+  }
+
+  if(r.mode === "magnitude"){ renderMagnitude(r, parts, meta); finishRender(parts); return; }
+
+  const keys = Object.keys(r.metrics || {});
+  const firstKey = (state.primary && r.metrics[state.primary]) ? state.primary : keys[0];
+  const first = r.metrics[firstKey];
+  if(first){
+    const primName = first.primary_estimator || Object.keys(first.estimators)[0];
+    const prim = first.estimators[primName];
+    const ax = prim.axis || {};
+    const ctrl = ax.controlled_for_magnitude || {};
+    const kpis = [
+      [fmt(ax.r), t("results.kpi.axis", {est:t("est."+primName)})],
+      [pfmt(ax.p), t("results.kpi.perm", {null:meta.null_model})],
+      [fmt(ctrl.r), t("results.kpi.ctrl")],
+      [fmt(first.layers.delta), t("results.kpi.layers", {p:pfmt(first.layers.p)})],
+      [fmt(first.reliability.split_half_r), t("results.kpi.reliability")],
+      [prim.epicentres ? prim.epicentres.n : "—", t("results.kpi.epicentres")]
+    ];
+    parts.push(`<div class="kpis">${kpis.map(k=>
+      `<div class="kpi"><span class="n">${k[0]}</span><span class="l">${k[1]}</span></div>`).join("")}</div>`);
+  }
+
+  if(r.sweep){
+    parts.push(`<div class="metric-block"><div class="metric-head"><h3>${t("results.sweep")}</h3>
+      <span class="tag">${r.sweep.rows.length} × ${r.sweep.cols.length}</span></div>`);
+    parts.push(`<div class="muted" style="margin:4px 0 8px">${t("results.sweepHint")}</div>`);
+    const head = `<tr><th>${t("field.primary")}</th>${r.sweep.cols.map(c=>`<th>${t("est."+c)}</th>`).join("")}</tr>`;
+    const rows = r.sweep.rows.map((m,i)=>{
+      const cells = r.sweep.cols.map((c,j)=>{
+        const val = r.sweep.r[i][j], p = r.sweep.p[i][j];
+        const star = (p !== null && p < 0.05) ? "*" : "";
+        return `<td style="background:${heatColor(val)};color:${textColor(val)}">${fmt(val,2)}${star}</td>`;
+      }).join("");
+      return `<tr><th>${m}</th>${cells}</tr>`;
+    }).join("");
+    parts.push(`<table class="heat">${head}${rows}</table>`);
+    if(r.sweep.figure){
+      parts.push(`<div class="figs" style="margin-top:10px"><figure>
+        <img loading="lazy" src="${r.sweep.figure.url}" alt="coordinate matrix"/>
+        <figcaption>${t("results.sweepFigure")}</figcaption></figure></div>`);
+    }
+    parts.push(`</div>`);
+  }
+
+  Object.entries(r.metrics || {}).forEach(([key, block])=>{
+    parts.push(`<div class="metric-block">`);
+    parts.push(`<div class="metric-head"><h3>${metricLabel({id:key, label:block.label})}</h3>
+      <span class="tag ${block.family==='custom'?'alt':''}">${familyLabel(block.family)}</span>
+      <span class="muted">${block.field_kind==='regional'?t("results.fieldRegional"):t("results.fieldEdge")}</span></div>`);
+
+    const kk = [];
+    Object.entries(block.estimators || {}).forEach(([est, item])=>{
+      kk.push(`<div class="kpi"><span class="n">${fmt(item.axis.r)}</span>
+        <span class="l">r · ${t("est."+est)} (p=${pfmt(item.axis.p)})</span></div>`);
+    });
+    parts.push(`<div class="kpis" style="margin-top:10px">${kk.join("")}</div>`);
+
+    const figs = block.figures || {};
+    const capKeys = ["route_card","spectrum","epicentres","layers","reliability","individual"];
+    const items = capKeys.filter(k=>figs[k]);
+    if(items.length){
+      parts.push(`<div class="figs">${items.map(k=>
+        `<figure><img loading="lazy" src="${figs[k].url}" alt="${k}"/>
+         <figcaption>${t("cap."+k)}</figcaption></figure>`).join("")}</div>`);
+    }
+
+    const indiv = block.individual || {};
+    const scales = Object.keys(indiv).filter(k=>k !== "best_scale");
+    if(scales.length){
+      const rows = scales.map(k=>{
+        const st = indiv[k], sm = st.summary || {};
+        return `<tr><td>${k}</td><td>${fmt(sm.mean)}</td><td>${fmt(sm.sd)}</td>
+                <td>${fmt(st.r)}</td><td>${pfmt(st.p)}</td><td>${st.n ?? "—"}</td></tr>`;
+      }).join("");
+      parts.push(`<table class="csv"><tr><th>${t("table.scale")}</th><th>${t("table.mean")}</th>
+        <th>${t("table.sd")}</th><th>${t("table.r")}</th><th>${t("table.p")}</th><th>${t("table.n")}</th></tr>${rows}</table>`);
+    }
+    parts.push(`</div>`);
+  });
+
+  const dl = (r.downloads || []).map(d=>
+    `<a class="btn ghost small" href="${d.url}">${t("dl."+d.kind) || d.label}</a>`).join("");
+  parts.push(`<div class="downloads">${dl}</div>`);
+
+  $("#resultBody").innerHTML = parts.join("");
+}
+
+function finishRender(parts){
+  const r = state.result;
+  const dl = (r.downloads || []).map(d=>
+    `<a class="btn ghost small" href="${d.url}">${t("dl."+d.kind) || d.label}</a>`).join("");
+  parts.push(`<div class="downloads">${dl}</div>`);
+  $("#resultBody").innerHTML = parts.join("");
+}
+
+function renderMagnitude(r, parts, meta){
+  const names = Object.keys(r.metrics || {});
+  const rows = names.map(name=>{
+    const m = r.metrics[name];
+    const kindLabel = m.mean_matrix_preview ? t("mag.ok") : t("mag.regionalOnly");
+    return `<tr><td><b>${name}</b></td><td>${m.kind}</td>
+      <td>${(m.subject_ids || []).length}</td>
+      <td>${(m.regional_shape || [])[1] ?? "—"}</td><td>${kindLabel}</td></tr>`;
+  }).join("");
+  parts.push(`<div class="metric-block"><div class="metric-head">
+    <h3>${t("mag.title")}</h3><span class="tag">${names.length}</span></div>
+    <table class="csv"><tr><th>metric</th><th>${t("mag.kind")}</th>
+      <th>${t("mag.subjects")}</th><th>${t("mag.regions")}</th><th>${t("mag.note")}</th></tr>${rows}</table>`);
+  const first = r.metrics[names[0]];
+  if(first && first.mean_matrix_preview){
+    parts.push(`<figure><img src="${magMatrixPng(r)}" alt="mean matrix"/>
+      <figcaption>${t("mag.meanMat")}（${names[0]}）</figcaption></figure>`);
+  }
+  if(first && first.regional_preview){
+    parts.push(`<div class="muted" style="margin:6px 0">${t("mag.preview")}</div>`);
+  }
+}
+
+function magMatrixPng(r){
+  // lightweight inline SVG heat map of the first mean matrix (downsampled)
+  const first = Object.values(r.metrics || {}).find(m => m.mean_matrix_preview);
+  if(!first) return "";
+  const M0 = first.mean_matrix_preview;
+  const step = Math.max(1, Math.ceil(M0.length / 120));
+  const M = [];
+  for(let i = 0; i < M0.length; i += step){
+    const row = [];
+    for(let j = 0; j < M0.length; j += step) row.push(M0[i][j]);
+    M.push(row);
+  }
+  const n = M.length, cell = 420 / n;
+  let lo = Infinity, hi = -Infinity;
+  M.forEach(row => row.forEach(v => { if(v < lo) lo = v; if(v > hi) hi = v; }));
+  if(!isFinite(lo)){ lo = 0; hi = 1; }
+  const span = (hi - lo) || 1;
+  let rects = "";
+  for(let i = 0; i < n; i++) for(let j = 0; j < n; j++){
+    const t2 = (M[i][j] - lo) / span;
+    const R = Math.round(33 + 222 * t2), G = Math.round(89 + 166 * t2), B = Math.round(107 + 148 * t2);
+    rects += `<rect x="${(j * cell).toFixed(2)}" y="${(i * cell).toFixed(2)}" width="${(cell + .4).toFixed(2)}" height="${(cell + .4).toFixed(2)}" fill="rgb(${R},${G},${B})"/>`;
+  }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="420" height="420" shape-rendering="crispEdges">${rects}</svg>`;
+  return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+}
+
+$("#langBtn").addEventListener("click", ()=>{
+  setLang(state.lang === "zh" ? "en" : "zh");
+});
+
+boot().catch(err=>{
+  setStatus("status.noServer", null, "err");
+  toast(err.message, true);
+});
+</script>
+</body>
+</html>
