@@ -36,7 +36,6 @@ matlab/+sfcx/          MATLAB 工具箱（同一套定义 + uifigure App）
   tests/               数值对照测试（run_tests.m / run_gui_tests.m）
 examples/              5 被试教学数据集 + quickstart 脚本
 tests/                 Python 冒烟测试（pytest 可选，selftest.py 无依赖）
-docs/                  论文方法段落草稿、真实数据接入说明
 启动Web界面.bat / SFCX网页版-启动.vbs   本地网页版启动器
 启动MATLAB界面.bat                      MATLAB App 启动器
 ```
@@ -360,16 +359,9 @@ coh = build_cohort({"bold": bold, "sc": sc, "networks": net, "hierarchy": hier},
 - **需要 BOLD 的定义**（reliance 系列、Granger、传递熵、RNC、TRR）在没有时间序列的队列上会
   明确报错，而不是静默给出无意义数字。
 - **焦点检测依赖邻接图**：结构连接越稀疏，局部极大值越多；稠密图会只剩一个全局极大。
-- **`msr` 是特征向量符号翻转的近似**，不是 Wagner & Dray 的完整 MSR。
-- **跨运行时数值对照**：12 个快定义中 10 个与 MATLAB 端逐格一致（|Δr| ≤ 5e-7）；
-  `search_info` 因最短路径并列时两个运行时选路不同而不可逐格对照（已从对照中排除并在结果中注明）；
-  `reliance` 边级读出存在 ~1e-2 量级的浮点累积差异（容差 5e-2）。
 - 合成数据的目的是演示坐标依赖，**不是**模拟真实脑网络的全部统计性质。
 
-## 与论文的关系
 
-本工具实现论文 Methods 的四层读出与三条分析路线；`sweep` 对应"轴方向随估计量翻转"那张核心图。
-论文里的 1,021 + 876 真实队列结果由项目内脚本产生，本工具可在同一 `.npz` 接口上复算。
 
 ## 许可
 
